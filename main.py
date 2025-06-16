@@ -105,26 +105,31 @@ available_functions = types.Tool(
     ]
 )
 
-response = client.models.generate_content(
+for c in range(20):
+    response = client.models.generate_content(
     model="gemini-2.0-flash-001",
     contents=messages,
     config=types.GenerateContentConfig(tools=[available_functions], system_instruction=system_prompt),
     )
+    prompt_token_count = response.usage_metadata.prompt_token_count
+    candidates_token_count = response.usage_metadata.candidates_token_count
+    function_call_part = response.function_calls
+    for resp in response.candidates:
+        messages.append(resp.content)
 
-prompt_token_count = response.usage_metadata.prompt_token_count
-candidates_token_count = response.usage_metadata.candidates_token_count
-function_call_part = response.function_calls
-
-if function_call_part != []:
-    for call in function_call_part:
-        function_call_result = call_function(call, verbose=verbose)
-        if not hasattr(function_call_result.parts[0], "function_response") or \
-        not hasattr(function_call_result.parts[0].function_response, "response"):
-            raise Exception("Function call did not produce a function response!")
-        if verbose:
-            print(f"-> {function_call_result.parts[0].function_response.response}")
-else:
-    print(response.text)
+    if function_call_part:
+        for call in function_call_part:
+            function_call_result = call_function(call, verbose=verbose)
+            messages.append(function_call_result)
+            if not hasattr(function_call_result.parts[0], "function_response") or \
+                not hasattr(function_call_result.parts[0].function_response, "response"):
+                    raise Exception("Function call did not produce a function response!")
+            if verbose:
+                print(f"-> {function_call_result.parts[0].function_response.response}")
+    else:
+        print("Final response:")
+        print(response.text)
+        break
 
 if verbose:
     print(f"User prompt: {user_prompt}")
